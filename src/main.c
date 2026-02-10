@@ -45,9 +45,9 @@ int main(int argc, char **argv) {
       break;
     }
 
-    /* 制御計算（PID） */
+    /* 制御計算（PID）: target_hum を渡す */
     control_compute(&temp_pid, target_temp, sensor.temperature,
-                    sensor.humidity, &ctrl);
+                    target_hum, sensor.humidity, &ctrl);
 
     /* センサ（環境）を1秒進める */
     sensor_update(&sensor, ctrl.heater_power, ctrl.fan_power);

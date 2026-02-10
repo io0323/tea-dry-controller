@@ -25,9 +25,11 @@ void pid_init(PID *p, float kp, float ki, float kd);
 /* PID計算（1秒刻み想定） */
 float pid_update(PID *p, float setpoint, float measured);
 
-/* 高レベル制御：目標温度/湿度から出力を算出する */
+/* 高レベル制御：目標温度/湿度から出力を算出する
+ * target_hum を追加し、湿度差に基づくファン制御を可能にする
+ */
 void control_compute(PID *temp_pid, float target_temp, float current_temp,
-                     float current_hum, ControlOutput *out);
+                     float target_hum, float current_hum, ControlOutput *out);
 
 #endif /* CONTROL_H */
 
