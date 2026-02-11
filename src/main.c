@@ -4,19 +4,41 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include "../include/sensor.h"
 #include "../include/control.h"
 #include "../include/state.h"
+#include "../include/log.h"
 
 /* 目標値（簡易固定） */
 static const float WARMUP_TARGET_TEMP = 60.0f;
 static const float DRYING_TARGET_TEMP = 55.0f;
 static const float DRYING_TARGET_HUM = 30.0f;
 
+static void parse_args(int argc, char **argv, int *drying_time, char **log_file) {
+  *drying_time = 300;
+  *log_file = NULL;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) {
+      *log_file = argv[++i];
+    } else if (strncmp(argv[i], "--log=", 6) == 0) {
+      *log_file = argv[i] + 6;
+    } else if (argv[i][0] != '-') {
+      *drying_time = atoi(argv[i]);
+    }
+  }
+}
+
 int main(int argc, char **argv) {
-  int drying_time = 300; /* デフォルト 300秒 */
-  if (argc >= 2) drying_time = atoi(argv[1]);
+  int drying_time;
+  char *log_file;
+  parse_args(argc, argv, &drying_time, &log_file);
+
+  if (log_file) {
+    log_set_file(log_file);
+    log_write(LOG_INFO, "ログファイル: %s", log_file);
+  }
 
   SensorData sensor;
   sensor_init(&sensor);
@@ -57,18 +79,19 @@ int main(int argc, char **argv) {
     case STATE_WARMUP:
       if (sensor.temperature >= WARMUP_TARGET_TEMP - 1.0f) {
         state = STATE_DRYING;
-        fprintf(stderr, "[LOG] 状態遷移: WARMUP -> DRYING\n");
+        log_write(LOG_INFO, "状態遷移: WARMUP -> DRYING");
       }
       break;
     case STATE_DRYING:
       if (sensor.elapsed_seconds >= drying_time) {
         state = STATE_FINISH;
-        fprintf(stderr, "[LOG] 状態遷移: DRYING -> FINISH\n");
+        log_write(LOG_INFO, "状態遷移: DRYING -> FINISH");
       }
       /* 異常判定（過熱 or 過乾燥） */
       if (sensor.temperature > 120.0f || sensor.humidity < 5.0f) {
         state = STATE_ERROR;
-        fprintf(stderr, "[LOG] 異常検出: ERROR に遷移\n");
+        log_write(LOG_ERROR, "異常検出: ERROR に遷移 (T=%.1f H=%.1f)",
+                  sensor.temperature, sensor.humidity);
       }
       break;
     default:
@@ -83,17 +106,18 @@ int main(int argc, char **argv) {
 
     /* 終了判定（状態による） */
     if (state == STATE_FINISH) {
-      printf("[INFO] 乾燥完了\n");
+      log_write(LOG_INFO, "乾燥完了");
       break;
     }
     if (state == STATE_ERROR) {
-      printf("[ERROR] 異常終了\n");
+      log_write(LOG_ERROR, "異常終了");
       break;
     }
 
     sleep(1);
   }
 
+  log_shutdown();
   return 0;
 }
 
